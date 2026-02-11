@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dhikr Counter & Clock</title>
+    <style>
+        body, html {
+            height: 100%; margin: 0; display: flex; flex-direction: column;
+            background-color: #000000; color: #ffffff; font-family: -apple-system, sans-serif;
+            user-select: none; touch-action: manipulation; overflow: hidden;
+        }
+
+        /* Top Clock Section */
+        #clock-display {
+            padding: 20px; text-align: center; background: #111;
+            font-size: 2.5rem; font-weight: 300; letter-spacing: 2px;
+            color: #4ade80; border-bottom: 1px solid #222;
+        }
+
+        /* Main Tap Area */
+        #tap-area {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; cursor: pointer;
+        }
+        #counter { font-size: 9rem; font-weight: 800; line-height: 1; }
+        .hint { color: #555; margin-top: 15px; font-size: 1rem; }
+
+        /* History & Reset */
+        #history-panel {
+            background: #111; padding: 15px; max-height: 150px;
+            overflow-y: auto; border-top: 1px solid #222;
+        }
+        .history-item {
+            display: flex; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid #222; color: #888; font-size: 0.9rem;
+        }
+        .reset-container { padding: 15px; text-align: center; background: #000; }
+        #reset-btn {
+            padding: 10px 25px; background: transparent;
+            color: #ff4444; border: 1px solid #333; border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="clock-display">00:00:00</div>
+
+    <div id="tap-area" onclick="increment()">
+        <div id="counter">0</div>
+        <div class="hint">Tap anywhere to count</div>
+    </div>
+
+    <div id="history-panel">
+        <div id="history-list"></div>
+    </div>
+
+    <div class="reset-container">
+        <button id="reset-btn" onclick="resetCounter(event)">Reset Everything</button>
+    </div>
+
+    <script>
+        let count = localStorage.getItem('dhikrTotal') ? parseInt(localStorage.getItem('dhikrTotal')) : 0;
+        let history = JSON.parse(localStorage.getItem('dhikrHistory')) || [];
+       
+        const counterDisplay = document.getElementById('counter');
+        const historyList = document.getElementById('history-list');
+        const clockDisplay = document.getElementById('clock-display');
+
+        // 1. Live Local Clock
+        function updateClock() {
+            const now = new Date();
+            clockDisplay.innerText = now.toLocaleTimeString([], { hour12: true });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 2. Counting Logic
+        function increment() {
+            count++;
+            localStorage.setItem('dhikrTotal', count);
+
+            // Vibrate ONLY on 33, 66, 99...
+            if (count % 33 === 0) {
+                if ("vibrate" in navigator) {
+                    navigator.vibrate([200, 100, 200]); // Distinct double pulse
+                }
+               
+                // Add to History
+                const now = new Date();
+                const timestamp = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                history.unshift({val: count, time: timestamp});
+                if (history.length > 5) history.pop();
+                localStorage.setItem('dhikrHistory', JSON.stringify(history));
+            }
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            counterDisplay.innerText = count;
+            historyList.innerHTML = history.length ? history.map(item => `
+                <div class="history-item">
+                    <span>Reached ${item.val}</span>
+                    <span>${item.time}</span>
+                </div>
+            `).join('') : '<div style="text-align:center; color:#444;">No history yet</div>';
+        }
+
+        function resetCounter(event) {
+            event.stopPropagation();
+            if (confirm("Reset counter and history?")) {
+                count = 0;
+                history = [];
+                localStorage.clear();
+                updateDisplay();
+            }
+        }
+
+        updateDisplay();
+    </script>
+</body>
+</html>
