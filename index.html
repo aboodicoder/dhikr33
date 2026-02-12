@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Tasbih Counter</title>
+    <title>Advanced Tasbih Counter</title>
     <style>
         body {
             background-color: black;
-            color: #00FF00; /* Green timers */
-            font-family: 'Segoe UI', sans-serif;
+            color: #00FF00; /* Green text */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             overflow: hidden;
             height: 100vh;
@@ -19,41 +19,41 @@
             user-select: none;
         }
 
-        #timer-header {
+        #clock-container {
             margin-top: 20px;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: bold;
             text-align: center;
             z-index: 10;
         }
 
-        #main-counter {
-            font-size: 5rem;
-            margin-top: 10px;
-            z-index: 10;
-            text-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+        #ms-display {
+            font-size: 1rem;
+            opacity: 0.8;
         }
 
-        /* White String */
+        #counter-display {
+            font-size: 5rem;
+            margin: 10px 0;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            z-index: 10;
+        }
+
+        /* String and Bead */
         #string {
             position: absolute;
-            top: 0;
-            bottom: 0;
+            top: 0; bottom: 0; left: 50%;
             width: 4px;
             background-color: white;
-            left: 50%;
             transform: translateX(-50%);
             z-index: 1;
         }
 
-        /* Light Blue Bead with Cracks */
         #bead {
             position: absolute;
-            top: 25%;
-            left: 50%;
-            width: 100px;
-            height: 100px;
-            background-color: #ADD8E6; /* Start Light Blue */
+            top: 25%; left: 50%;
+            width: 90px; height: 90px;
+            background-color: #ADD8E6; /* Light Blue */
             border-radius: 50%;
             transform: translate(-50%, 0);
             z-index: 2;
@@ -66,7 +66,7 @@
             box-shadow: inset -10px -10px 20px rgba(0,0,0,0.5);
         }
 
-        /* History Log at bottom */
+        /* Log History */
         #log-panel {
             position: fixed;
             bottom: 0;
@@ -80,16 +80,11 @@
             z-index: 100;
         }
 
-        .log-entry {
-            padding: 5px;
-            border-bottom: 1px solid #222;
-            color: #888;
-        }
-
+        .log-entry { padding: 5px; border-bottom: 1px solid #222; color: #888; }
         .log-entry b { color: #00FF00; }
 
-        /* Shake Animation */
-        @keyframes vibrate {
+        /* Screen Shake */
+        @keyframes shake {
             0% { transform: translate(0); }
             20% { transform: translate(-5px, 5px); }
             40% { transform: translate(-5px, -5px); }
@@ -97,76 +92,82 @@
             80% { transform: translate(5px, -5px); }
             100% { transform: translate(0); }
         }
-
-        .vibrating { animation: vibrate 0.3s linear infinite; }
+        .vibrating { animation: shake 0.3s linear; }
     </style>
 </head>
 <body onclick="handleTap()">
 
-    <div id="timer-header">
-        <div id="sec-timer">0s</div>
-        <div id="ms-timer" style="font-size: 1rem;">000ms</div>
+    <div id="clock-container">
+        <div id="current-time">00:00:00</div>
+        <div id="ms-display">000ms</div>
     </div>
 
-    <div id="main-counter">0</div>
+    <div id="counter-display">0</div>
 
     <div id="string"></div>
     <div id="bead"></div>
 
-    <div id="log-panel">
-        <div style="opacity: 0.5; font-style: italic;">Progress log will appear here...</div>
+    <div id="log-panel" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <span style="opacity:0.5; font-style:italic;">History Log</span>
+            <button onclick="clearLog()" style="background:#444; color:white; border:none; padding:2px 8px; cursor:pointer; font-size:0.7rem;">Clear</button>
+        </div>
+        <div id="log-list"></div>
     </div>
 
     <script>
         let count = 0;
         let beadTop = 25;
-        const startTime = Date.now();
-       
+        const logList = document.getElementById('log-list');
         const bead = document.getElementById('bead');
-        const counterText = document.getElementById('main-counter');
-        const logPanel = document.getElementById('log-panel');
 
-        // Real-time Timer
+        // Initialize from Local Storage
+        window.onload = () => {
+            const savedLog = localStorage.getItem('tasbih_log');
+            if (savedLog) logList.innerHTML = savedLog;
+        };
+
+        // Real-time Clock with Milliseconds
         setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            document.getElementById('sec-timer').innerText = Math.floor(elapsed / 1000) + 's';
-            document.getElementById('ms-timer').innerText = (elapsed % 1000).toString().padStart(3, '0') + 'ms';
-        }, 40);
+            const now = new Date();
+            document.getElementById('current-time').innerText = now.toLocaleTimeString();
+            document.getElementById('ms-display').innerText = now.getMilliseconds().toString().padStart(3, '0') + 'ms';
+        }, 10); // Updated frequently for precision
 
         function handleTap() {
             count++;
-            counterText.innerText = count;
+            document.getElementById('counter-display').innerText = count;
 
-            // Slide bead down
-            beadTop += 4;
+            // Bead Movement
+            beadTop += 5;
             if (beadTop > 80) beadTop = 25;
             bead.style.top = beadTop + '%';
 
-            // Milestone: Every 33
+            // Milestone Actions
             if (count % 33 === 0) {
-                performMilestoneEffects();
+                // Vibration/Shake
+                document.body.classList.add('vibrating');
+                if ("vibrate" in navigator) navigator.vibrate(300);
+                setTimeout(() => document.body.classList.remove('vibrating'), 300);
+
+                // Random Bead Color
+                bead.style.backgroundColor = `hsl(${Math.floor(Math.random() * 360)}, 70%, 80%)`;
+
+                // Log Entry
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = `<b>${count} done</b> at ${timestamp}`;
+                logList.prepend(entry);
+
+                // Save to Local Storage
+                localStorage.setItem('tasbih_log', logList.innerHTML);
             }
         }
 
-        function performMilestoneEffects() {
-            // 1. Shake the screen
-            document.body.classList.add('vibrating');
-            if ("vibrate" in navigator) navigator.vibrate(300); // Mobile hardware vibrate
-            setTimeout(() => document.body.classList.remove('vibrating'), 400);
-
-            // 2. Change Bead Color (Randomly)
-            const randomHue = Math.floor(Math.random() * 360);
-            bead.style.backgroundColor = `hsl(${randomHue}, 70%, 80%)`;
-
-            // 3. Log the completion
-            const now = new Date();
-            const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-           
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            entry.innerHTML = `<b>${count} beads done</b> at ${timestamp}`;
-           
-            logPanel.prepend(entry); // Newest on top
+        function clearLog() {
+            logList.innerHTML = '';
+            localStorage.removeItem('tasbih_log');
         }
     </script>
 </body>
