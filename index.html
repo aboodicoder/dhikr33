@@ -2,121 +2,172 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dhikr Counter & Clock</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Tasbih Counter</title>
     <style>
-        body, html {
-            height: 100%; margin: 0; display: flex; flex-direction: column;
-            background-color: #000000; color: #ffffff; font-family: -apple-system, sans-serif;
-            user-select: none; touch-action: manipulation; overflow: hidden;
+        body {
+            background-color: black;
+            color: #00FF00; /* Green timers */
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
         }
 
-        /* Top Clock Section */
-        #clock-display {
-            padding: 20px; text-align: center; background: #111;
-            font-size: 2.5rem; font-weight: 300; letter-spacing: 2px;
-            color: #4ade80; border-bottom: 1px solid #222;
+        #timer-header {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 10;
         }
 
-        /* Main Tap Area */
-        #tap-area {
-            flex: 1; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; cursor: pointer;
+        #main-counter {
+            font-size: 5rem;
+            margin-top: 10px;
+            z-index: 10;
+            text-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
         }
-        #counter { font-size: 9rem; font-weight: 800; line-height: 1; }
-        .hint { color: #555; margin-top: 15px; font-size: 1rem; }
 
-        /* History & Reset */
-        #history-panel {
-            background: #111; padding: 15px; max-height: 150px;
-            overflow-y: auto; border-top: 1px solid #222;
+        /* White String */
+        #string {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: white;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
         }
-        .history-item {
-            display: flex; justify-content: space-between;
-            padding: 8px 0; border-bottom: 1px solid #222; color: #888; font-size: 0.9rem;
+
+        /* Light Blue Bead with Cracks */
+        #bead {
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            width: 100px;
+            height: 100px;
+            background-color: #ADD8E6; /* Start Light Blue */
+            border-radius: 50%;
+            transform: translate(-50%, 0);
+            z-index: 2;
+            transition: top 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), background-color 0.5s ease;
+           
+            /* Dark Blue Cracks */
+            background-image:
+                linear-gradient(45deg, transparent 48%, #00008B 49%, #00008B 51%, transparent 52%),
+                linear-gradient(-45deg, transparent 42%, #00008B 43%, #00008B 45%, transparent 46%);
+            box-shadow: inset -10px -10px 20px rgba(0,0,0,0.5);
         }
-        .reset-container { padding: 15px; text-align: center; background: #000; }
-        #reset-btn {
-            padding: 10px 25px; background: transparent;
-            color: #ff4444; border: 1px solid #333; border-radius: 20px;
+
+        /* History Log at bottom */
+        #log-panel {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(15, 15, 15, 0.95);
+            max-height: 150px;
+            overflow-y: auto;
+            border-top: 2px solid #333;
+            padding: 10px;
+            font-size: 0.9rem;
+            z-index: 100;
         }
+
+        .log-entry {
+            padding: 5px;
+            border-bottom: 1px solid #222;
+            color: #888;
+        }
+
+        .log-entry b { color: #00FF00; }
+
+        /* Shake Animation */
+        @keyframes vibrate {
+            0% { transform: translate(0); }
+            20% { transform: translate(-5px, 5px); }
+            40% { transform: translate(-5px, -5px); }
+            60% { transform: translate(5px, 5px); }
+            80% { transform: translate(5px, -5px); }
+            100% { transform: translate(0); }
+        }
+
+        .vibrating { animation: vibrate 0.3s linear infinite; }
     </style>
 </head>
-<body>
+<body onclick="handleTap()">
 
-    <div id="clock-display">00:00:00</div>
-
-    <div id="tap-area" onclick="increment()">
-        <div id="counter">0</div>
-        <div class="hint">Tap anywhere to count</div>
+    <div id="timer-header">
+        <div id="sec-timer">0s</div>
+        <div id="ms-timer" style="font-size: 1rem;">000ms</div>
     </div>
 
-    <div id="history-panel">
-        <div id="history-list"></div>
-    </div>
+    <div id="main-counter">0</div>
 
-    <div class="reset-container">
-        <button id="reset-btn" onclick="resetCounter(event)">Reset Everything</button>
+    <div id="string"></div>
+    <div id="bead"></div>
+
+    <div id="log-panel">
+        <div style="opacity: 0.5; font-style: italic;">Progress log will appear here...</div>
     </div>
 
     <script>
-        let count = localStorage.getItem('dhikrTotal') ? parseInt(localStorage.getItem('dhikrTotal')) : 0;
-        let history = JSON.parse(localStorage.getItem('dhikrHistory')) || [];
+        let count = 0;
+        let beadTop = 25;
+        const startTime = Date.now();
        
-        const counterDisplay = document.getElementById('counter');
-        const historyList = document.getElementById('history-list');
-        const clockDisplay = document.getElementById('clock-display');
+        const bead = document.getElementById('bead');
+        const counterText = document.getElementById('main-counter');
+        const logPanel = document.getElementById('log-panel');
 
-        // 1. Live Local Clock
-        function updateClock() {
-            const now = new Date();
-            clockDisplay.innerText = now.toLocaleTimeString([], { hour12: true });
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+        // Real-time Timer
+        setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            document.getElementById('sec-timer').innerText = Math.floor(elapsed / 1000) + 's';
+            document.getElementById('ms-timer').innerText = (elapsed % 1000).toString().padStart(3, '0') + 'ms';
+        }, 40);
 
-        // 2. Counting Logic
-        function increment() {
+        function handleTap() {
             count++;
-            localStorage.setItem('dhikrTotal', count);
+            counterText.innerText = count;
 
-            // Vibrate ONLY on 33, 66, 99...
+            // Slide bead down
+            beadTop += 4;
+            if (beadTop > 80) beadTop = 25;
+            bead.style.top = beadTop + '%';
+
+            // Milestone: Every 33
             if (count % 33 === 0) {
-                if ("vibrate" in navigator) {
-                    navigator.vibrate([200, 100, 200]); // Distinct double pulse
-                }
-               
-                // Add to History
-                const now = new Date();
-                const timestamp = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                history.unshift({val: count, time: timestamp});
-                if (history.length > 5) history.pop();
-                localStorage.setItem('dhikrHistory', JSON.stringify(history));
-            }
-            updateDisplay();
-        }
-
-        function updateDisplay() {
-            counterDisplay.innerText = count;
-            historyList.innerHTML = history.length ? history.map(item => `
-                <div class="history-item">
-                    <span>Reached ${item.val}</span>
-                    <span>${item.time}</span>
-                </div>
-            `).join('') : '<div style="text-align:center; color:#444;">No history yet</div>';
-        }
-
-        function resetCounter(event) {
-            event.stopPropagation();
-            if (confirm("Reset counter and history?")) {
-                count = 0;
-                history = [];
-                localStorage.clear();
-                updateDisplay();
+                performMilestoneEffects();
             }
         }
 
-        updateDisplay();
+        function performMilestoneEffects() {
+            // 1. Shake the screen
+            document.body.classList.add('vibrating');
+            if ("vibrate" in navigator) navigator.vibrate(300); // Mobile hardware vibrate
+            setTimeout(() => document.body.classList.remove('vibrating'), 400);
+
+            // 2. Change Bead Color (Randomly)
+            const randomHue = Math.floor(Math.random() * 360);
+            bead.style.backgroundColor = `hsl(${randomHue}, 70%, 80%)`;
+
+            // 3. Log the completion
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+           
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<b>${count} beads done</b> at ${timestamp}`;
+           
+            logPanel.prepend(entry); // Newest on top
+        }
     </script>
 </body>
 </html>
